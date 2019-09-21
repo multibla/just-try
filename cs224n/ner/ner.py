@@ -214,6 +214,21 @@ class WindowClassifier(nn.Module):
         return out
 
 
+class LstmCrfClassifier(nn.Module):
+    def __init(self, vocab_size, embedding_size, hidden_size, num_layers, output_size):
+        super(LstmCrfClassifier, self).__init__()
+
+        self.embed = nn.Embedding(vocab_size, embedding_size)
+        self.lstm = nn.LSTM(input_size=embedding_size, hidden_size=hidden_size, num_layers=num_layers, bidirectional=True)
+        self.linear = nn.Linear(hidden_size, output_size)
+
+    def forward(self, inputs, is_training=False):
+        embeds = self.embed(inputs)
+        bilstm, (cn, hn) = self.lstm(embeds)
+        output = self.linear(bilstm)
+        return output
+
+
 # In[20]:
 
 
@@ -222,7 +237,7 @@ EMBEDDING_SIZE = 50 # x (WINDOW_SIZE*2+1) = 250
 HIDDEN_SIZE = 300
 EPOCH = 3
 LEARNING_RATE = 0.001
-
+LAYER_SIZE = 2
 
 # ## Training 
 
