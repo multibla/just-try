@@ -16,6 +16,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.optim as optim
 import torch.nn.functional as F
+from torchcrf import CRF
 import nltk
 import random
 import numpy as np
@@ -202,7 +203,6 @@ class WindowClassifier(nn.Module):
         
     def forward(self, inputs, is_training=False): 
         embeds = self.embed(inputs) # BxWxD
-        pdb.set_trace()
         concated = embeds.view(-1, embeds.size(1)*embeds.size(2)) # Bx(W*D)
         h0 = self.relu(self.h_layer1(concated))
         if is_training:
@@ -213,26 +213,51 @@ class WindowClassifier(nn.Module):
         out = self.softmax(self.o_layer(h1))
         return out
 
+class Linear(nn.Module):
+	def __init__(self, input_size, output_size, bias=False, activation=None)
+        super(Linear, self).__init__())
+		self.activation = activation
+        self.linear = torch.nn.Linear(input_size, output_size, bias=bias)
 
+    def forward(self, input):
+	    if self.activation is None:
+			return self.linear(input)
+	    elif self.activation == "tanh":
+			return F.tanh(self.linear(input))
+	    elif self.activation == "sigmoid":
+			return F.sigmoid(self.linear(input))
+	    elif self.activation == "softmax":
+			return F.softmax(self.linear(input))
+	    else:
+			raise Exception("Unknown activation function: %s" % self.activation)
+	     
+	
 class LstmCrfClassifier(nn.Module):
     def __init(self, vocab_size, embedding_size, hidden_size, num_layers, output_size):
         super(LstmCrfClassifier, self).__init__()
 
         self.embed = nn.Embedding(vocab_size, embedding_size)
         self.lstm = nn.LSTM(input_size=embedding_size, hidden_size=hidden_size, num_layers=num_layers, bidirectional=True)
-        self.linear = nn.Linear(hidden_size, output_size)
+        self.linear = Linear(hidden_size, output_size)
+		self.crf = CRF(output_size+2)
+
+		
+		drange = np.sqrt(6./(np.sum(output_size+2, output_size+2)))
+		self.transitions = torch.rand(output_size+2, output_size+2).uniform_(-1/drange, 1/drange)
 
     def forward(self, inputs, is_training=False):
         embeds = self.embed(inputs)
         bilstm, (cn, hn) = self.lstm(embeds)
-        output = self.linear(bilstm)
+        hidden = self.linear(bilstm, activation="tanh")
+		output = self.crf(hidden, self.transitions, tagset)
+
         return output
 
 
 # In[20]:
 
 
-BATCH_SIZE = 128
+ATCH_SIZE = 128
 EMBEDDING_SIZE = 50 # x (WINDOW_SIZE*2+1) = 250
 HIDDEN_SIZE = 300
 EPOCH = 3
